@@ -187,6 +187,7 @@ tr.tap{cursor:pointer}
         <button class="btn sm on" id="tBm" aria-pressed="true">▲ BM</button>
         <button class="btn sm on" id="tBd" aria-pressed="true">▢ Areas</button>
         <button class="btn sm on" id="tSp" aria-pressed="true">◆ Stock</button>
+        <button class="btn sm on" id="tMc" aria-pressed="true">Machines</button>
       </div>
       <div class="info" id="planInfo">Tap a control point for details</div>
       <div class="legend" id="legend"></div>
@@ -592,8 +593,9 @@ function fillFilters(){
 }
 $('fZone').onchange=()=>{fillFilters();fitPlan();drawPlan()};$('fArea').onchange=()=>{fitPlan();drawPlan()};
 $('fColor').onchange=drawPlan;$('fLabel').onchange=drawPlan;
-function syncToggles(){[['tBm','showBm'],['tBd','showBd'],['tSp','showSp']].forEach(([id,k])=>{const on=M()[k]!==false;$(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',on)})}
+function syncToggles(){[['tBm','showBm'],['tBd','showBd'],['tSp','showSp'],['tMc','showMc']].forEach(([id,k])=>{const on=M()[k]!==false;$(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',on)})}
 $('tBm').onclick=()=>{M().showBm=M().showBm===false;save();syncToggles();drawPlan();toast(M().showBm?'BM shown':'BM hidden')};
+$('tMc').onclick=()=>{M().showMc=M().showMc===false;save();syncToggles();drawPlan();toast(M().showMc?'Machines shown':'Machines hidden')};
 $('tSp').onclick=()=>{M().showSp=M().showSp===false;save();syncToggles();drawPlan();toast(M().showSp?'Stockpiles shown':'Stockpiles hidden')};
 $('tBd').onclick=()=>{M().showBd=M().showBd===false;save();syncToggles();drawPlan();toast(M().showBd?'Area boundaries shown':'Area boundaries hidden')};
 function resizePlan(){const r=cv.getBoundingClientRect();if(!r.width)return;dpr=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;if(!view.init){fitPlan();view.init=true}drawPlan()}
@@ -627,6 +629,9 @@ function drawPlan(){
     ctx.fillStyle=col;ctx.strokeStyle=css('--ink');ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+10,y);ctx.lineTo(x,y+10);ctx.lineTo(x-10,y);ctx.closePath();ctx.fill();ctx.stroke();
     const t2=fmt(c.rem)+' m³ left';ctx.font='700 11px '+css('--body');const w1=ctx.measureText(p.name).width;ctx.font='600 10px '+css('--mono');const w2=ctx.measureText(t2).width;ctx.globalAlpha=.88;ctx.fillStyle=css('--panel');ctx.fillRect(x+11,y-13,Math.max(w1,w2)+6,28);ctx.globalAlpha=1;
     ctx.fillStyle=css('--ink');ctx.font='700 11px '+css('--body');ctx.fillText(p.name,x+14,y-2);ctx.font='600 10px '+css('--mono');ctx.fillStyle=css('--muted');ctx.fillText(t2,x+14,y+11)});
+  if(M().showMc!==false){const ED=eqData();if(ED)(ED.equip||[]).forEach(e=>{if(!e.loc||!e.loc.e||e.status==='off')return;const[x,y]=toS(+e.loc.e,+e.loc.n);if(x<-30||y<-30||x>W+30||y>H+30)return;
+    const sc={work:'--ok',idle:'--near',down:'--cut',maint:'--held'}[e.status]||'--pend';ctx.fillStyle=css('--panel');ctx.beginPath();ctx.arc(x,y,15,0,7);ctx.fill();ctx.strokeStyle=css(sc);ctx.lineWidth=3;ctx.stroke();const im=eqImg(e.type);if(im.complete)ctx.drawImage(im,x-14,y-8,28,14.5);else im.onload=()=>drawPlan();
+    ctx.fillStyle=css('--ink');ctx.font='700 10px '+css('--body');ctx.fillText(e.no,x+18,y+4)})}
   if(M().showBm!==false)S.bms.forEach(b=>{const[x,y]=toS(b.e,b.n);if(x<-20||y<-20||x>W+20||y>H+20)return;ctx.fillStyle=css('--accent');ctx.strokeStyle=css('--ink');ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y-9);ctx.lineTo(x+8,y+6);ctx.lineTo(x-8,y+6);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle=css('--ink');ctx.font='700 10px '+css('--mono');ctx.fillText(b.name+(b.z!=null?' '+f3(b.z):''),x+10,y+4)});
   const ps=planPts(),mode=$('fColor').value,lab=$('fLabel').value;
   const rng=[Math.min(...ps.map(p=>p.dg)),Math.max(...ps.map(p=>p.dg))];
@@ -1463,12 +1468,12 @@ function renderProd(){
   let body;
   if(!E){body=`<div class="card empty">Equipment data is not on this device yet.<br>Open the <b>Sheraz Equipment</b> app on this phone or laptop (same website), enter the daily hours, and come back.</div>`}
   else{const eq=new Map((E.equip||[]).map(e=>[e.id,e]));
-    const rows=days.map(d=>{const L=E.logs.filter(l=>l.date===d);const h=L.reduce((a,l)=>a+(+l.work||0),0),m=L.filter(l=>+l.work>0).length,v=pd[d]||0;return{d,h,m,v,r:h?v/h:0}});
+    const rows=days.map(d=>{const L=E.logs.filter(l=>l.date===d);const h=L.reduce((a,l)=>a+(+l.work||0),0),m=L.filter(l=>+l.work>0).length,v=pd[d]||0,tv=(E.trips||[]).filter(x=>x.date===d).reduce((a,x)=>a+(+x.trips||0)*(+x.cap||0),0);return{d,h,m,v,tv,r:h?v/h:0}});
     const T=rows.reduce((a,r)=>({h:a.h+r.h,v:a.v+r.v}),{h:0,v:0});
     const ty={};E.logs.filter(l=>l.date>=days[0]).forEach(l=>{const e=eq.get(l.eq);if(!e)return;const t=ty[e.type]=ty[e.type]||{w:0,i:0,d:0};t.w+=+l.work||0;t.i+=+l.idle||0;t.d+=+l.down||0});
     const tk=Object.keys(ty).sort((a,b)=>ty[b].w-ty[a].w),tm=Math.max(1,...tk.map(k=>ty[k].w+ty[k].i+ty[k].d));
     body=`<div class="kpis"><div class="kpi" style="--c:var(--accent)"><b>${T.h?(T.v/T.h).toFixed(1):'—'}</b><span>m³ per machine-hour (14 days)</span></div><div class="kpi" style="--c:var(--fill)"><b>${fmt(T.v)}</b><span>m³ moved (WIRs)</span></div><div class="kpi" style="--c:var(--soil)"><b>${fmt(T.h)}</b><span>machine work hours</span></div></div>
-    <div class="tbl"><table><thead><tr><th>Date</th><th style="text-align:right">m³</th><th style="text-align:right">Machines</th><th style="text-align:right">Work h</th><th style="text-align:right">m³ / h</th></tr></thead><tbody>${rows.slice().reverse().map(r=>`<tr><td>${dNice(r.d)}</td><td style="text-align:right">${r.v?fmt(r.v):''}</td><td style="text-align:right">${r.m||''}</td><td style="text-align:right">${r.h?fmt(r.h):''}</td><td style="text-align:right;font-weight:700">${r.h&&r.v?r.r.toFixed(1):''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="tbl"><table><thead><tr><th>Date</th><th style="text-align:right">m³</th><th style="text-align:right">Machines</th><th style="text-align:right">Work h</th><th style="text-align:right">Truck m³</th><th style="text-align:right">m³ / h</th></tr></thead><tbody>${rows.slice().reverse().map(r=>`<tr><td>${dNice(r.d)}</td><td style="text-align:right">${r.v?fmt(r.v):''}</td><td style="text-align:right">${r.m||''}</td><td style="text-align:right">${r.h?fmt(r.h):''}</td><td style="text-align:right">${r.tv?fmt(r.tv):''}</td><td style="text-align:right;font-weight:700">${r.h&&r.v?r.r.toFixed(1):''}</td></tr>`).join('')}</tbody></table></div>
     <div class="card"><div class="ch"><h2>Hours by machine type</h2><small>last 14 days</small></div>${tk.map(k=>{const t=ty[k],s=t.w+t.i+t.d;return`<div style="margin-top:8px"><div class="row small" style="justify-content:space-between"><b>${esc(k)}</b><span class="mono">${fmt(t.w)} work · ${fmt(t.i)} idle · ${fmt(t.d)} down · ${(s?t.w/s*100:0).toFixed(0)}%</span></div><div class="bar" style="margin-top:4px;width:${s/tm*100}%"><span style="width:${s?t.w/s*100:0}%;background:var(--ok)"></span><span style="width:${s?t.i/s*100:0}%;background:var(--near)"></span><span style="width:${s?t.d/s*100:0}%;background:var(--cut)"></span></div></div>`}).join('')||'<div class="empty small">No hours logged</div>'}</div>
     <div class="ur">m³ approved/held WIRs se, ghante equipment app ke daily log se. Dono apps same website se khule hon to data khud mil jata hai.</div>`}
   $('v-vol').innerHTML=`<div class="stack"><div><h2 style="font-size:24px">Productivity</h2><div class="small muted">Earthwork m³ vs machine hours</div></div>${volSeg()}${body}</div>`;bindVolSeg();
@@ -1560,6 +1565,27 @@ function renderAreas(){
       .concat([[],['Notes']]).concat(notes.map(n=>[n.date,n.text]));
     download(`Area_${R.a.replace(/\W+/g,'_')}_${today()}.csv`,lines.map(r=>r.map(q).join(',')).join('\n'),'text/csv')};
 }
+
+/* ================= MACHINE DRAWINGS ================= */
+const EQY='#f2b705',EQD='#2b2f33',EQS='#4a5058',EQG='#bfe0f2',EQL='#e7ecef';
+function wheel(cx,cy,r){return`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${EQD}"/><circle cx="${cx}" cy="${cy}" r="${r*.45}" fill="#8b939b"/><circle cx="${cx}" cy="${cy}" r="${r*.15}" fill="${EQD}"/>`}
+function track(x,y,w,h){let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h/2}" fill="${EQD}"/>`;const n=Math.max(3,Math.round(w/12));for(let i=0;i<n;i++){const cx=x+h/2+(w-h)*i/(n-1);s+=`<circle cx="${cx}" cy="${y+h/2}" r="${h*.28}" fill="#6b737b"/>`}return s}
+const EQART={
+ 'Dozer':()=>`${track(16,44,82,15)}<rect x="28" y="28" width="62" height="17" rx="2" fill="${EQY}"/><path d="M60 8h26l5 21H57z" fill="${EQY}"/><path d="M64 12h18l3 14H62z" fill="${EQG}"/><rect x="40" y="18" width="3.5" height="11" fill="${EQD}"/><path d="M4 20q7 19 0 39h9q5-19 0-39z" fill="${EQS}"/><path d="M11 40h20v5H11z" fill="${EQS}"/><path d="M96 38l16 5-2 16h-3l1-12-12-4z" fill="${EQS}"/>`,
+ 'Grader':()=>`<path d="M8 33h66v7H8z" fill="${EQY}"/><rect x="10" y="30" width="7" height="16" fill="${EQY}"/>${wheel(14,50,9)}<path d="M70 10h22l4 23H67z" fill="${EQY}"/><path d="M73 14h16l3 16H71z" fill="${EQG}"/><rect x="92" y="25" width="24" height="17" rx="2" fill="${EQY}"/><rect x="108" y="17" width="3" height="9" fill="${EQD}"/>${wheel(84,50,9)}${wheel(104,50,9)}<rect x="47" y="39" width="4" height="10" fill="${EQS}"/><path d="M33 50q16 7 32 0v4q-16 7-32 0z" fill="${EQS}"/>`,
+ 'Excavator / Shovel':()=>`${track(32,46,66,13)}<rect x="50" y="40" width="34" height="7" fill="${EQS}"/><path d="M70 30l6-5-44-22-6 6z" fill="${EQY}" stroke="#c99400" stroke-width="1"/><path d="M26 4l7 4-16 28-6-3z" fill="${EQY}" stroke="#c99400" stroke-width="1"/><path d="M5 31l14 4-2 11q-9 2-14-6z" fill="${EQS}"/><rect x="44" y="24" width="56" height="18" rx="3" fill="${EQY}"/><rect x="88" y="26" width="14" height="14" rx="3" fill="${EQS}"/><path d="M44 8h18v18H44z" fill="${EQY}"/><path d="M47 11h12v11H47z" fill="${EQG}"/>`,
+ 'Wheel Loader':()=>`${wheel(40,48,11)}${wheel(90,48,11)}<rect x="72" y="26" width="44" height="18" rx="3" fill="${EQY}"/><rect x="108" y="18" width="3" height="9" fill="${EQD}"/><rect x="30" y="33" width="44" height="10" fill="${EQY}"/><path d="M60 7h24v21H60z" fill="${EQY}"/><path d="M63 10h18v13H63z" fill="${EQG}"/><path d="M50 34h6L31 17l-6 4z" fill="${EQY}"/><path d="M4 12h24v18q-14 5-25-2z" fill="${EQS}"/>`,
+ 'Roller / Compactor':()=>`<circle cx="26" cy="44" r="15" fill="#9aa3ab" stroke="${EQD}" stroke-width="2"/><circle cx="26" cy="44" r="6" fill="${EQS}"/><path d="M10 27h32v7H10z" fill="${EQY}"/><rect x="40" y="29" width="64" height="17" rx="3" fill="${EQY}"/><path d="M70 7h24v23H70z" fill="${EQY}"/><path d="M73 10h18v15H73z" fill="${EQG}"/><path d="M66 5h32v4H66z" fill="${EQD}"/>${wheel(92,50,10)}`,
+ 'Dump Truck':()=>`<rect x="8" y="40" width="106" height="6" fill="${EQD}"/><path d="M8 17h25v24H8z" fill="${EQY}"/><path d="M12 21h15v9H12z" fill="${EQG}"/><path d="M36 12h76l-4 28H38z" fill="${EQY}"/><path d="M50 14v24M66 14v24M82 14v24M98 14v24" stroke="#c99400" stroke-width="2"/>${wheel(20,50,9)}${wheel(80,50,9)}${wheel(100,50,9)}`,
+ 'Water Tanker':()=>`<rect x="8" y="40" width="106" height="6" fill="${EQD}"/><path d="M8 17h25v24H8z" fill="${EQY}"/><path d="M12 21h15v9H12z" fill="${EQG}"/><rect x="36" y="15" width="76" height="25" rx="12" fill="${EQL}" stroke="#9fb3c3" stroke-width="1.5"/><path d="M38 28h72" stroke="#2f73c0" stroke-width="4"/><rect x="70" y="10" width="10" height="6" rx="2" fill="#9fb3c3"/>${wheel(20,50,9)}${wheel(80,50,9)}${wheel(100,50,9)}`,
+ 'Backhoe':()=>`${wheel(36,49,9)}${wheel(80,47,12)}<rect x="28" y="32" width="64" height="12" rx="2" fill="${EQY}"/><path d="M58 10h22v24H58z" fill="${EQY}"/><path d="M61 13h16v15H61z" fill="${EQG}"/><path d="M40 33h5L25 20l-5 4z" fill="${EQY}"/><path d="M4 16h19v15q-11 4-20-2z" fill="${EQS}"/><path d="M90 34l5 3 14-30-5-3z" fill="${EQY}"/><path d="M104 4l6 2 5 22-5 1z" fill="${EQY}"/><path d="M106 26l12 2-2 10q-8 1-11-5z" fill="${EQS}"/>`,
+ 'Trailer / Low-bed':()=>`<path d="M4 18h24v24H4z" fill="${EQY}"/><path d="M8 22h14v9H8z" fill="${EQG}"/><rect x="4" y="40" width="40" height="5" fill="${EQD}"/><path d="M30 34h86v7H30z" fill="${EQS}"/><path d="M30 34l-6 7h6z" fill="${EQS}"/>${wheel(14,50,8)}${wheel(36,50,8)}${wheel(92,50,8)}${wheel(108,50,8)}`,
+ 'Pickup / Car':()=>`<path d="M10 34q2-8 12-9l12-12h30l12 12h30q6 1 6 7v10H10z" fill="#e9eef2" stroke="#9aa6b0" stroke-width="1.5"/><path d="M38 16h11v10H29z" fill="${EQG}"/><path d="M52 16h11l9 10H52z" fill="${EQG}"/><rect x="78" y="26" width="30" height="3" fill="#9aa6b0"/>${wheel(28,46,9)}${wheel(92,46,9)}`,
+ 'Generator':()=>`<rect x="18" y="12" width="84" height="34" rx="4" fill="${EQY}"/><path d="M28 18v22M34 18v22M40 18v22M46 18v22" stroke="#c99400" stroke-width="2"/><rect x="68" y="18" width="26" height="16" rx="2" fill="${EQD}"/><circle cx="75" cy="26" r="3" fill="#4cc483"/><circle cx="85" cy="26" r="3" fill="#e9bb3f"/><rect x="22" y="46" width="76" height="4" fill="${EQD}"/>${wheel(32,53,6)}${wheel(88,53,6)}`,
+ 'Other':()=>`<rect x="22" y="16" width="70" height="28" rx="4" fill="${EQY}"/><path d="M60 6h20v12H60z" fill="${EQY}"/><path d="M63 9h14v7H63z" fill="${EQG}"/>${wheel(36,50,9)}${wheel(80,50,9)}`
+};
+function eqSvg(type,h,extra){const f=EQART[type]||EQART.Other;return`<svg viewBox="0 0 120 62" width="${Math.round(h*120/62)}" height="${h}" role="img" aria-label="${esc(type||'Machine')}" style="flex:none;display:block${extra?';'+extra:''}"><ellipse cx="60" cy="60" rx="56" ry="2" fill="rgba(0,0,0,.18)"/>${f()}</svg>`}
+const EQIMG={};function eqImg(type){if(EQIMG[type])return EQIMG[type];const im=new Image();im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 62">${(EQART[type]||EQART.Other)()}</svg>`);EQIMG[type]=im;return im}
 
 /* ================= REPORT ================= */
 let repDate='';
