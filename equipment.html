@@ -253,7 +253,7 @@ const DOCS=[['istimara','Istimara'],['insurance','Insurance'],['tpi','TPI certif
 function daysLeft(d){return d?dDiff(today(),d):null}
 function expPill(d){const n=daysLeft(d);if(n==null)return'<span class="small muted">—</span>';return pill(n<0?[`Expired ${-n} d`,'--down']:n<=15?[`${n} days`,'--idle']:[dNice(d),'--work'])}
 function eqSearchSel(id,val,filter){const L=S.equip.filter(filter||(()=>true)).sort((a,b)=>a.no.localeCompare(b.no,undefined,{numeric:true}));return`<select id="${id}">${L.map(e=>`<option value="${e.id}"${e.id===val?' selected':''}>${esc(e.no)} · ${esc(e.type)}</option>`).join('')}</select>`}
-function qaData(){try{return JSON.parse(localStorage.getItem('sheraz-earthworks-v3')||'null')}catch(e){return null}}
+function qaData(){try{return JSON.parse(localStorage.getItem('sheraz-earthworks-lite')||localStorage.getItem('sheraz-earthworks-v3')||'null')}catch(e){return null}}
 function ll2utm(lat,lon,zone){const a=6378137,f=1/298.257223563,k0=0.9996,e2=f*(2-f),ep2=e2/(1-e2),lon0=((zone-1)*6-180+3)*Math.PI/180,φ=lat*Math.PI/180,λ=lon*Math.PI/180;const N=a/Math.sqrt(1-e2*Math.sin(φ)**2),T=Math.tan(φ)**2,C=ep2*Math.cos(φ)**2,A=Math.cos(φ)*(λ-lon0);const Mm=a*((1-e2/4-3*e2**2/64-5*e2**3/256)*φ-(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*φ)+(15*e2**2/256+45*e2**3/1024)*Math.sin(4*φ)-(35*e2**3/3072)*Math.sin(6*φ));return[k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000,k0*(Mm+N*Math.tan(φ)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720))+(lat<0?1e7:0)]}
 function segHtml(id,opts,cur){return`<div class="seg" id="${id}">${opts.map(o=>`<button data-k="${o[0]}"${o[0]===cur?' class="on"':''}>${o[1]}</button>`).join('')}</div>`}
 function bindSeg(id,set){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>set(b.dataset.k))}
@@ -315,7 +315,7 @@ function renderMaint(){
 
 /* ================= TRUCK TRIPS ================= */
 const MATS2=['Cut material','Fill material','Waste','Topsoil / stripping','Rock','Water','Other'];
-function tripDest(){const q=qaData();const L=new Set(zoneList());if(q){(q.points||[]).forEach(p=>{if(p.area)L.add(p.area)});(q.piles||[]).forEach(p=>L.add(p.name))}['Approved dump site','Borrow pit'].forEach(x=>L.add(x));return[...L].sort()}
+function tripDest(){const q=qaData();const L=new Set(zoneList());if(q){(q.areas||[]).forEach(a=>L.add(a));(q.points||[]).forEach(p=>{if(p.area)L.add(p.area)});(q.piles||[]).forEach(p=>L.add(p.name))}['Approved dump site','Borrow pit'].forEach(x=>L.add(x));return[...L].sort()}
 function renderTrips(host){
   const T=S.equip.filter(e=>(e.type==='Dump Truck'||e.type==='Trailer / Low-bed'||e.type==='Water Tanker')&&e.status!=='off').sort((a,b)=>a.no.localeCompare(b.no,undefined,{numeric:true}));
   const D=S.trips.filter(x=>x.date===logDate),vol=D.reduce((a,x)=>a+(+x.trips||0)*(+x.cap||0),0),tr=D.reduce((a,x)=>a+(+x.trips||0),0);
@@ -899,6 +899,7 @@ function bindSyncCard(){
 const RENDER={home:renderHome,zones:renderZones,equip:renderEquip,log:renderLog,fuel:renderFuel,maint:renderMaint,fore:renderFore,report:renderReport,data:renderData};
 function brand(){$('appName').innerHTML=esc(M().eng)+'<small>Equipment Control'+(M().company?' · '+esc(M().company):'')+'</small>';$('logo').alt=M().eng}
 if(!load()){makeSample();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 brand();renderHome();const paired=takePair();showSyncState();setTimeout(()=>syncNow(paired),paired?300:1500);
 try{if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname))navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
 })();
