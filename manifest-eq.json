@@ -4,7 +4,7 @@
   "short_name": "Sheraz Equipment",
   "description": "Site equipment control by Eng Sheraz Abbasi",
   "start_url": "./equipment.html",
-  "scope": "./",
+  "scope": "./equipment.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1c2733",
